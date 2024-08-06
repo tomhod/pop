@@ -1,0 +1,663 @@
+composer global require laravel/installer
+
+composer create-project laravel/laravel laravel2024
+
+
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=joy7sait@gmail.com
+MAIL_PASSWORD=sbexcwirgyveiaae
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=joy7sait@gmail.com
+MAIL_FROM_NAME="${APP_NAME}"
+
+
+
+<?php
+
+namespace App\Http\Middleware;
+
+use Closure;
+use Illuminate\Http\Request;
+
+class Webguard
+{
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
+     * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
+     */
+    public function handle(Request $request, Closure $next)
+    {
+        if(session()->has('user_id'))
+        return $next($request);
+    else
+    return redirect('no-access');
+    }
+}
+
+
+
+/////////
+
+
+<?php
+
+use Illuminate\Support\Facades\Route;
+
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ArrayController;
+
+use App\Http\Controllers\WeatherController;
+
+Route::get('/weather', [WeatherController::class, 'index'])->name('weather.index');
+
+Route::middleware(['auth.user'])->group(function () {
+    Route::resource('projects', ProjectController::class)->except(['index', 'show']);
+});
+
+Route::resource('projects', ProjectController::class)->only(['index', 'show']);
+
+
+/*
+|------------------------------------------mkdir resources/views/projects
+--------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| contains the "web" middleware group. Now create something great!
+|
+*/
+
+Route::get('/array-operations', [ArrayController::class, 'showArrays'])->middleware('guard');;
+
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+
+
+
+Route::get('/no-access',function(){
+    echo "u are not allowed to acces";
+    die;
+});
+
+Route::get('/login',function(){
+   session()->put('user_id', 1);
+ return redirect('/projects');
+});
+
+Route::get('/logout',function(){
+    session()->forget('user_id', 1);
+  return redirect()->back();
+ });
+
+
+/////////////////////////////////////
+
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Project;
+
+use App\Events\ProjectCreated; // Make sure this is imported
+
+class ProjectController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    
+    public function index()
+    {
+        $projects = Project::all();
+
+        // Add a dynamic "Status" column to each project
+        $projects->map(function ($project) {
+            $project->status = rand(0, 1) ? 'Active' : 'Inactive';
+            return $project;
+        });
+
+        return view('projects.index', compact('projects'));
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        return view('projects.create');
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'required|string',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+    
+        $project = Project::create($request->all());
+    
+        // Trigger the ProjectCreated event
+        event(new ProjectCreated($project));
+    
+        return redirect()->route('projects.index')
+                         ->with('success', 'Project created successfully.');
+    }
+    
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function show($id)
+    {
+        $project = Project::findOrFail($id); // Retrieve the project instance
+        return view('projects.show', compact('project'));
+    }
+    
+    public function edit($id)
+    {
+        $project = Project::findOrFail($id); // Retrieve the project instance
+        return view('projects.edit', compact('project'));
+    }
+    
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'required|string',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+    
+        $project = Project::findOrFail($id); // Retrieve the project instance
+        $project->update($request->all());
+    
+        return redirect()->route('projects.index')
+                         ->with('success', 'Project updated successfully.');
+    }
+    
+    public function destroy($id)
+    {
+        $project = Project::findOrFail($id); // Retrieve the project instance
+        $project->delete();
+    
+        return redirect()->route('projects.index')
+                         ->with('success', 'Project deleted successfully.');
+    }
+    
+}
+
+
+//////////////////////////
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+
+class ArrayController extends Controller
+{
+    
+    public function showArrays()
+    {
+        $arrayList1 = [4, 2, 8, 5, 15, 3, 9, 6, 7, 11];
+        $arrayList2 = [15, 12, 18, 13, 11, 14, 19, 16, 17];
+
+        // Use the internal functions
+        $maxMinArray1 = $this->findMaxMin($arrayList1);
+        $maxMinArray2 = $this->findMaxMin($arrayList2);
+
+        $sortedArray1 = $this->sortArrayAscending($arrayList1);
+        $sortedArray2 = $this->sortArrayAscending($arrayList2);
+
+        $concatenatedSortedDescending = $this->concatenateAndSortDescending($arrayList1, $arrayList2);
+
+        $mergedAssociativeArray = $this->mergeArraysAssociative($arrayList1, $arrayList2);
+
+        $repeatedValues = $this->getRepeatedValues($arrayList1, $arrayList2);
+
+        $uniqueArrayList = $this->getUniqueArrayList($arrayList1, $arrayList2);
+
+        return view('array_operations', compact(
+            'arrayList1',
+            'arrayList2',
+            'maxMinArray1',
+            'maxMinArray2',
+            'sortedArray1',
+            'sortedArray2',
+            'concatenatedSortedDescending',
+            'mergedAssociativeArray',
+            'repeatedValues',
+            'uniqueArrayList'
+        ));
+    }
+
+    private function findMaxMin($array) {
+        $max = max($array);
+        $min = min($array);
+        return ['max' => $max, 'min' => $min];
+    }
+
+    private function sortArrayAscending($array) {
+        sort($array);
+        return $array;
+    }
+
+    private function concatenateAndSortDescending($array1, $array2) {
+        $concatenated = array_merge($array1, $array2);
+        rsort($concatenated);
+        return $concatenated;
+    }
+
+    private function mergeArraysAssociative($array1, $array2) {
+        $merged = [];
+        foreach ($array1 as $value) {
+            $merged[$value] = $value;
+        }
+        foreach ($array2 as $value) {
+            $merged[$value] = $value;
+        }
+        return $merged;
+    }
+
+    private function getRepeatedValues($array1, $array2) {
+        return array_intersect($array1, $array2);
+    }
+
+    private function getUniqueArrayList($array1, $array2) {
+        return array_unique(array_merge($array1, $array2));
+    }
+}
+
+
+////////////////////////////////////////////////
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Array Operations</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Array Operations</h1>
+        
+        <h2>Original Arrays</h2>
+        <table>
+            <tr>
+                <th>Array 1 (SarrayList1)</th>
+                <th>Array 2 ($arrayList2)</th>
+            </tr>
+            <tr>
+                <td>{{ implode(', ', $arrayList1) }}</td>
+                <td>{{ implode(', ', $arrayList2) }}</td>
+            </tr>
+        </table>
+        
+        <h2>Maximum and Minimum Values</h2>
+        <table>
+            <tr>
+                <th>Array</th>
+                <th>Maximum</th>
+                <th>Minimum</th>
+            </tr>
+            <tr>
+                <td>Array 1</td>
+                <td>{{ $maxMinArray1['max'] }}</td>
+                <td>{{ $maxMinArray1['min'] }}</td>
+            </tr>
+            <tr>
+                <td>Array 2</td>
+                <td>{{ $maxMinArray2['max'] }}</td>
+                <td>{{ $maxMinArray2['min'] }}</td>
+            </tr>
+        </table>
+        
+        <h2>Sorted Arrays</h2>
+        
+        <table>
+            <tr>
+                <th>Array 1 (Sorted)</th>
+                <th>Array 2 (Sorted)</th>
+            </tr>
+            <tr>
+                <td>{{ implode(', ', $sortedArray1) }}</td>
+                <td>{{ implode(', ', $sortedArray2) }}</td>
+            </tr>
+        </table>
+        
+        <h2>Concatenated Array (Sorted Descending)</h2>
+        <table>
+            <tr>
+                <th>Concatenated Array</th>
+            </tr>
+            <tr>
+                <td>{{ implode(', ', $concatenatedSortedDescending) }}</td>
+            </tr>
+        </table>
+        
+        <h2>Merged Associative Array</h2>
+        <table>
+            <tr>
+                <th>Merged Array (Associative)</th>
+            </tr>
+            <tr>
+                <td>{{ implode(', ', array_keys($mergedAssociativeArray)) }}</td>
+            </tr>
+        </table>
+        
+        <h2>Repeated Values</h2>
+        <table>
+            <tr>
+                <th>Repeated Values</th>
+            </tr>
+            <tr>
+                <td>{{ implode(', ', $repeatedValues) }}</td>
+            </tr>
+        </table>
+        
+        <h2>Unique Array List</h2>
+        <table>
+            <tr>
+                <th>Unique Values</th>
+            </tr>
+            <tr>
+                <td>{{ implode(', ', $uniqueArrayList) }}</td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>
+
+/////////////
+
+<?php
+
+namespace App\Events;
+
+use App\Models\Project;
+use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PresenceChannel;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Foundation\Events\Dispatchable;
+use Illuminate\Queue\SerializesModels;
+
+
+class ProjectCreated
+{
+    use Dispatchable, InteractsWithSockets, SerializesModels;
+
+    public $project;
+
+    /**
+     * Create a new event instance.
+     *
+     * @param \App\Models\Project $project
+     * @return void
+     */
+    public function __construct(Project $project)
+    {
+        $this->project = $project;
+    }
+
+    /**
+     * Get the channels the event should broadcast on.
+     *
+     * @return \Illuminate\Broadcasting\Channel|array
+     */
+    public function broadcastOn()
+    {
+        return new PrivateChannel('channel-name');
+    }
+}
+
+
+
+//////////////////
+
+<?php
+
+namespace App\Listeners;
+
+use App\Events\ProjectCreated;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+
+
+use App\Mail\ProjectCreatedMail;
+
+class SendProjectCreatedNotification
+{
+    /**
+     * Handle the event.
+     *
+     * @param  \App\Events\ProjectCreated  $event
+     * @return void
+     */
+    public function handle(ProjectCreated $event)
+    {
+        $project = $event->project;
+
+        // Log the project creation
+        Log::info('A new project has been created:', [
+            'name' => $project->name,
+            'description' => $project->description,
+            'start_date' => $project->start_date,
+            'end_date' => $project->end_date,
+        ]);
+
+
+    Mail::to('joy7sait@gmail.com')->send(new ProjectCreatedMail($project));
+    }
+}
+
+
+//////////////////////
+
+<?php
+
+namespace App\Mail;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class ProjectCreatedMail extends Mailable
+{
+    use Queueable, SerializesModels;
+
+    /**
+     * Create a new message instance.
+     *
+     * @return void
+     */
+
+     public $project;
+    public function __construct($project)
+    {
+        $this->project = $project;
+    }
+
+    /**
+     * Build the message.
+     *
+     * @return $this
+     */
+    public function build()
+    {
+        return $this->view('projects.project_created')
+        ->with(['project' => $this->project]);
+    }
+}
+
+/////////////////
+
+<?php
+
+namespace App\Providers;
+
+use App\Events\ProjectCreated;
+use App\Listeners\SendProjectCreatedNotification;
+use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Event;
+
+
+class EventServiceProvider extends ServiceProvider
+{
+    /**
+     * The event listener mappings for the application.
+     *
+     * @var array
+     */
+    protected $listen = [
+        ProjectCreated::class => [
+            SendProjectCreatedNotification::class,
+        ],
+    ];
+
+    /**
+     * Register any events for your application.
+     *
+     * @return void
+     */
+    public function boot()
+    {
+        //
+    }
+}
+
+//////////////////////////////////////
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class WeatherController extends Controller
+{
+    public function index()
+    {
+        // OpenWeatherMap API URL
+        $apiKey = env('OPENWEATHER_API_KEY');
+        $city = 'india'; // You can make this dynamic
+        $url = "https://api.openweathermap.org/data/2.5/weather?q={$city}&appid={$apiKey}&units=metric";
+        $response = Http::get($url);
+
+        // Check if the request was successful
+        if ($response->successful()) {
+            $data = $response->json();
+
+            // Extract the necessary information
+            $weather = [
+                'temperature' => $data['main']['temp'],
+                'humidity' => $data['main']['humidity'],
+                'description' => $data['weather'][0]['description'],
+                'city' => $data['name'],
+                'country' => $data['sys']['country'],
+            ];
+
+            return view('weather', compact('weather'));
+        } else {
+            return view('weather')->withErrors('Unable to fetch weather data.');
+        }
+    }
+}
+
+////////////////////////////////////
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Information</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/3.3.2/tailwind.min.css">
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="bg-white p-8 rounded shadow-md w-full max-w-md">
+        <h1 class="text-2xl font-bold mb-4 text-center">Weather in {{ $weather['city'] }}, {{ $weather['country'] }}</h1>
+        <div class="text-center text-xl">
+            <p>Temperature: <span class="font-semibold">{{ $weather['temperature'] }} &deg;C</span></p>
+            <p>Humidity: <span class="font-semibold">{{ $weather['humidity'] }}%</span></p>
+            <p>Condition: <span class="font-semibold capitalize">{{ $weather['description'] }}</span></p>
+        </div>
+
+        @if($errors->any())
+            <div class="text-red-500 mt-4 text-center">
+                {{ $errors->first() }}
+            </div>
+        @endif
+    </div>
+
+</body>
+</html>
+
+
+
+OPENWEATHER_API_KEY=f0e5a48fdbf7472570eb8fa3a764bee3
+
+
+//////////////////
+
+
